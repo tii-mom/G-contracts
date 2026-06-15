@@ -3,44 +3,99 @@ import "@acton/emulation/network"
 import "@acton/emulation/scripts"
 
 import "@contracts/types"
+import "@wrappers/GEcosystem.gen"
+import "@wrappers/GMaster.gen"
+import "@wrappers/GTeamVesting.gen"
 
-// ==================== G Token Deployment Verification ====================
-// Run after deploy_all.tolk and init_all.tolk
-// Paste deployed addresses below, then run: acton script scripts/verify_deployment.tolk
+// ==================== CONFIGURATION (paste your addresses here) ====================
 
 fun main() {
+    val deployer = scripts.wallet("deployer");
     println("=== G Token Deployment Verification ===");
     println("");
-    println("Update contract addresses in this file before running!");
+
+    // ========== UPDATE THESE before running ==========
+    val masterAddress = deployer.address; // TODO: paste G_Master address
+    val oracleAddress = deployer.address; // TODO: paste PriceOracle address
+    val saleAddress = deployer.address;   // TODO: paste G_Sale address
+    val teamAddress = deployer.address;   // TODO: paste G_TeamVesting address
+    val ecoAddress = deployer.address;    // TODO: paste G_Ecosystem address
+    // =================================================
+
+    if (masterAddress == deployer.address) {
+        println("ERROR: Update contract addresses before running!");
+        return;
+    }
+    println("Addresses confirmed — running verification...");
     println("");
-    println("=== Manual Verification Checklist ===");
+
+    var allOk: bool = true;
+
+    allOk = verifyMaster(masterAddress) && allOk;
+    allOk = verifyTeamVesting(teamAddress) && allOk;
+    allOk = verifyEcosystem(ecoAddress) && allOk;
+
     println("");
-    println("1. G_Master.get_jetton_data():");
-    println("   totalSupply should be {}", G_TOTAL_SUPPLY);
-    println("   mintable should be -1 (or 0 after finalize)");
-    println("");
-    println("2. G_Master.get_wallet_address(saleAddr): verify sale wallet");
-    println("   G_Master.get_wallet_address(teamAddr): verify team wallet");
-    println("   G_Master.get_wallet_address(ecoAddr): verify eco wallet");
-    println("");
-    println("3. G_Sale.owner(): should be admin address");
-    println("   G_Sale.is_paused(): should be false");
-    println("   G_Sale.jetton_wallet(): should be set");
-    println("");
-    println("4. G_Sale.get_order(someOrderHash): verify order exists");
-    println("");
-    println("5. G_TeamVesting.get_vesting_data():");
-    println("   perRound should be {}", T_TEAM_PER_ROUND);
-    println("   claimedMask should be 0 initially");
-    println("");
-    println("6. G_Ecosystem.get_eco_data():");
-    println("   remainingG should be {}", G_ECOSYSTEM_ALLOCATION);
-    println("");
-    println("7. PriceOracle.get_current_price():");
-    println("   price should be 162 (if initialized)");
-    println("");
-    println("8. All tier configs:");
-    println("   Tier1 cap=5000, Tier2 cap=200, Tier3 cap=100");
-    println("");
-    println("===== End Verification Checklist =====");
+    if (allOk) {
+        println("=== All Checks Passed ===");
+    } else {
+        println("=== SOME CHECKS FAILED — review above ===");
+    }
+}
+
+// ==================== Verify G_Master ====================
+
+fun verifyMaster(masterAddr: address): bool {
+    println("--- G_Master ---");
+    val master = GMaster { address: masterAddr };
+
+    val (supply, _mintable, _admin, _content, _code) = master.getJettonData();
+    println("  totalSupply: {} base units", supply);
+    println("  Expected:     {} base units", G_TOTAL_SUPPLY);
+
+    if (supply == G_TOTAL_SUPPLY) {
+        println("  ✓ totalSupply matches");
+        return true;
+    } else {
+        println("  ✗ totalSupply MISMATCH");
+        return false;
+    }
+}
+
+// ==================== Verify G_TeamVesting ====================
+
+fun verifyTeamVesting(teamAddr: address): bool {
+    println("--- G_TeamVesting ---");
+    val team = GTeamVesting { address: teamAddr };
+
+    val (_owner, _oracle, perRound, _claimed) = team.getVestingData();
+    println("  perRound: {} base units", perRound);
+    println("  Expected: {} base units", T_TEAM_PER_ROUND);
+
+    if (perRound == T_TEAM_PER_ROUND) {
+        println("  ✓ perRound matches");
+        return true;
+    } else {
+        println("  ✗ perRound MISMATCH");
+        return false;
+    }
+}
+
+// ==================== Verify G_Ecosystem ====================
+
+fun verifyEcosystem(ecoAddr: address): bool {
+    println("--- G_Ecosystem ---");
+    val eco = GEcosystem { address: ecoAddr };
+
+    val (_owner, _wallet, remaining) = eco.getEcoData();
+    println("  remainingG: {} base units", remaining);
+    println("  Expected:   {} base units", G_ECOSYSTEM_ALLOCATION);
+
+    if (remaining == G_ECOSYSTEM_ALLOCATION) {
+        println("  ✓ remainingG matches");
+        return true;
+    } else {
+        println("  ✗ remainingG MISMATCH");
+        return false;
+    }
 }

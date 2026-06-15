@@ -4,14 +4,59 @@ import "@acton/emulation/scripts"
 
 import "@contracts/types"
 
-// ==================== Configuration ====================
-// Paste your deployed addresses here before running on testnet/mainnet
+// ==================== CONFIGURATION (paste your addresses here) ====================
+
+// Reserve wallet: 0QDsx-vPapMJyIh3LYEQXAF_wp0iAWk8I6ZN7Vw79zqTDIjo
+// LP wallet:      0QB31HYfGtzDDa-cudZolA6g1gNcoxZsxeQoEM4lmhhuoyvk
 
 fun main() {
     val deployer = scripts.wallet("deployer");
     println("=== G Token Initialization ===");
     println("Admin: {}", deployer.address);
-    println("WARNING: Update contract addresses before running on testnet/mainnet!");
+    println("");
+
+    // ========== UPDATE THESE before running on testnet/mainnet ==========
+    val masterAddress = deployer.address; // TODO: paste G_Master address
+    val oracleAddress = deployer.address; // TODO: paste PriceOracle address
+    val saleAddress = deployer.address;   // TODO: paste G_Sale address
+    val teamAddress = deployer.address;   // TODO: paste G_TeamVesting address
+    val ecoAddress = deployer.address;    // TODO: paste G_Ecosystem address
+
+    // Jetton wallet addresses (use Master.getWalletAddress to calculate)
+    val saleWallet = deployer.address; // TODO: paste Sale Jetton wallet
+    val teamWallet = deployer.address; // TODO: paste Team Jetton wallet
+    val ecoWallet = deployer.address;  // TODO: paste Eco Jetton wallet
+
+    // Direct wallet addresses (do NOT use Jetton wallet addresses here)
+    val reserveWallet = deployer.address; // TODO: 0QDsx-vPapMJyIh3LYEQXAF_wp0iAWk8I6ZN7Vw79zqTDIjo
+    val lpWallet = deployer.address;      // TODO: 0QB31HYfGtzDDa-cudZolA6g1gNcoxZsxeQoEM4lmhhuoyvk
+
+    // Backend Ed25519 public key (from KeyPair.publicKey)
+    val pubKey: uint256 = 0; // TODO: paste backend public key (uint256)
+    // ================================================================
+
+    if (masterAddress == deployer.address) {
+        println("ERROR: Update contract addresses before running!");
+        return;
+    }
+    println("Addresses confirmed — starting initialization...");
+
+    stepAll(
+        saleAddress,
+        teamAddress,
+        ecoAddress,
+        oracleAddress,
+        masterAddress,
+        saleWallet,
+        teamWallet,
+        ecoWallet,
+        reserveWallet,
+        lpWallet,
+        pubKey,
+    );
+
+    println("");
+    println("All steps complete. Run verify_deployment.tolk next.");
 }
 
 // ==================== Helpers ====================
@@ -20,12 +65,7 @@ fun sendTo(dest: address, body: cell, value: coins) {
     val deployer = scripts.wallet("deployer");
     val res = net.send(
         deployer.address,
-        createMessage({
-            bounce: BounceMode.NoBounce,
-            value,
-            dest,
-            body,
-        }),
+        createMessage({ bounce: BounceMode.NoBounce, value, dest, body }),
     );
     println("  result: {}", res);
 }
@@ -127,7 +167,7 @@ fun bodyMint(toAddress: address, amount: coins): cell {
         .endCell();
 }
 
-// ==================== Step ====================
+// ==================== Main init flow ====================
 
 fun stepAll(
     saleAddress: address,
@@ -138,6 +178,8 @@ fun stepAll(
     saleWallet: address,
     teamWallet: address,
     ecoWallet: address,
+    reserveWallet: address,
+    lpWallet: address,
     pubKey: uint256,
 ) {
     println("--- Step 1: Configure Backend Keys ---");
@@ -222,10 +264,10 @@ fun stepAll(
         ton("0.05"),
     );
 
-    println("--- Step 5: Configure Team Vesting ---");
+    println("--- Step 5: Configure Team Vesting Amount ---");
     sendTo(teamAddress, bodyConfigVestingAmount(T_TEAM_PER_ROUND), ton("0.05"));
 
-    println("--- Step 6: Register Oracle Targets ---");
+    println("--- Step 6: Register Oracle Targets (23 targets) ---");
     sendTo(oracleAddress, bodyRegisterTarget(0), ton("0.02"));
     sendTo(oracleAddress, bodyRegisterTarget(200), ton("0.02"));
     sendTo(oracleAddress, bodyRegisterTarget(500), ton("0.02"));
@@ -250,17 +292,26 @@ fun stepAll(
     sendTo(oracleAddress, bodyRegisterTarget(1062882), ton("0.02"));
     sendTo(oracleAddress, bodyRegisterTarget(3188646), ton("0.02"));
 
-    println("--- Step 7: Set Initial Price ---");
+    println("--- Step 7: Set Initial Price $0.000162 ---");
     sendTo(oracleAddress, bodyUpdatePrice(162), ton("0.05"));
 
-    println("--- Step 8: Mint Distribution ---");
-    // Note: Reserve and LP wallets must be manually configured
+    println("--- Step 8: Mint 5 Allocations (99亿 G total) ---");
+    println("  Mint Sale (9.9亿)...");
     sendTo(masterAddress, bodyMint(saleWallet, G_SALE_ALLOCATION), ton("0.1"));
+    println("  Mint Team (19.8亿)...");
     sendTo(masterAddress, bodyMint(teamWallet, G_TEAM_ALLOCATION), ton("0.1"));
+    println("  Mint Reserve (4.95亿)...");
+    sendTo(masterAddress, bodyMint(reserveWallet, G_RESERVE_ALLOCATION), ton("0.1"));
+    println("  Mint LP (4.95亿)...");
+    sendTo(masterAddress, bodyMint(lpWallet, G_LP_ALLOCATION), ton("0.1"));
+    println("  Mint Eco (59.4亿)...");
     sendTo(masterAddress, bodyMint(ecoWallet, G_ECOSYSTEM_ALLOCATION), ton("0.1"));
 
-    println("--- Step 9: Finalize Mint ---");
+    println("--- Step 9: Finalize Mint (lock supply) ---");
     sendTo(masterAddress, bodyFinalizeMint(), ton("0.05"));
 
+    println("");
     println("=== Init Complete ===");
+    println("Sale: 9.9亿 G  |  Team: 19.8亿 G  |  Reserve: 4.95亿 G  |  LP: 4.95亿 G  |  Eco: 59.4亿 G");
+    println("Total supply: {} base units", G_TOTAL_SUPPLY);
 }
