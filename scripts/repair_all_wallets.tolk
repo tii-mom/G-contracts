@@ -36,7 +36,13 @@ fun main() {
     println("Eco:  {}", ecoWallet);
 }
 
-fun deployWallet(owner: address, master: address, code: cell, amount: coins, label: string): address {
+fun deployWallet(
+    owner: address,
+    master: address,
+    code: cell,
+    amount: coins,
+    label: string,
+): address {
     val deployer = scripts.wallet("deployer");
     val data = packJettonWalletData(amount, owner, master, code);
     val stateInit = ContractState { code, data };

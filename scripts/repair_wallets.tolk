@@ -50,7 +50,13 @@ fun deployWallet(owner: address, master: address, code: cell, gAmount: coins, la
     val msg = createMessage({
         bounce: BounceMode.NoBounce,
         value: ton("0.1"),
-        dest: { workchain: 0, stateInit: ContractState { code, data: walletData } },
+        dest: {
+            workchain: 0,
+            stateInit: ContractState {
+                code,
+                data: walletData,
+            },
+        },
     });
     val res = net.send(deployer.address, msg);
     println("  Deploying {}...", label);

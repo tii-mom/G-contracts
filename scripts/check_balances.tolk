@@ -10,7 +10,9 @@ fun makeAddr(h: uint256): address {
 }
 
 fun main() {
-    val master = GMaster { address: makeAddr(0x8556f40833d7587b273f038f963513750b151b376bed7dc24907935d8b54258d) };
+    val master = GMaster {
+        address: makeAddr(0x8556f40833d7587b273f038f963513750b151b376bed7dc24907935d8b54258d),
+    };
 
     // Reserve wallet onwer
     val reserveOwner = makeAddr(0xecc7ebcf6a9309c888772d81105c017fc29d2201693c23a64ded5c3bf73a930c);

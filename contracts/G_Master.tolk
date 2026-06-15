@@ -41,7 +41,12 @@ fun MasterData.save(self) {
 
 // ==================== Mint ====================
 
-fun mintJettonImpl(toAddress: address, jettonAmount: coins, deployFee: coins, internalTransferBody: cell) {
+fun mintJettonImpl(
+    toAddress: address,
+    jettonAmount: coins,
+    deployFee: coins,
+    internalTransferBody: cell,
+) {
     var data: MasterData = MasterData.load();
 
     var stateInit: cell = calculateJettonWalletStateInit(

@@ -211,7 +211,7 @@ fun bodyConfigTier(
         .endCell();
 }
 
-fun bodyMint(toAddress: address, amount: coins): cell {
+fun bodyMint(toAddress: address, amount: coins, deployFee: coins): cell {
     val internalTransferBody: cell = beginCell()
         .storeUint(OP_INTERNAL_TRANSFER, 32)
         .storeUint(0, 64)
@@ -225,7 +225,7 @@ fun bodyMint(toAddress: address, amount: coins): cell {
         .storeUint(OP_MINT, 32)
         .storeUint(0, 64)
         .storeAddress(toAddress)
-        .storeCoins(0)
+        .storeCoins(deployFee)
         .storeRef(internalTransferBody)
         .endCell();
 }
@@ -359,16 +359,26 @@ fun stepAll(
     sendTo(oracleAddress, bodyUpdatePrice(162), ton("0.05"));
 
     println("--- Step 8: Mint 5 Allocations (99亿 G total) ---");
+    val walletDeployFee: coins = ton("0.05");
+    println("  Wallet deploy fee per mint: {} nanoton", walletDeployFee);
     println("  Mint Sale (9.9亿)...");
-    sendTo(masterAddress, bodyMint(saleWallet, G_SALE_ALLOCATION), ton("0.1"));
+    sendTo(masterAddress, bodyMint(saleWallet, G_SALE_ALLOCATION, walletDeployFee), ton("0.15"));
     println("  Mint Team (19.8亿)...");
-    sendTo(masterAddress, bodyMint(teamWallet, G_TEAM_ALLOCATION), ton("0.1"));
+    sendTo(masterAddress, bodyMint(teamWallet, G_TEAM_ALLOCATION, walletDeployFee), ton("0.15"));
     println("  Mint Reserve (4.95亿)...");
-    sendTo(masterAddress, bodyMint(reserveWallet, G_RESERVE_ALLOCATION), ton("0.1"));
+    sendTo(
+        masterAddress,
+        bodyMint(reserveWallet, G_RESERVE_ALLOCATION, walletDeployFee),
+        ton("0.15"),
+    );
     println("  Mint LP (4.95亿)...");
-    sendTo(masterAddress, bodyMint(lpWallet, G_LP_ALLOCATION), ton("0.1"));
+    sendTo(masterAddress, bodyMint(lpWallet, G_LP_ALLOCATION, walletDeployFee), ton("0.15"));
     println("  Mint Eco (59.4亿)...");
-    sendTo(masterAddress, bodyMint(ecoWallet, G_ECOSYSTEM_ALLOCATION), ton("0.1"));
+    sendTo(
+        masterAddress,
+        bodyMint(ecoWallet, G_ECOSYSTEM_ALLOCATION, walletDeployFee),
+        ton("0.15"),
+    );
 
     println("--- Step 9: Finalize Mint (lock supply) ---");
     sendTo(masterAddress, bodyFinalizeMint(), ton("0.05"));
