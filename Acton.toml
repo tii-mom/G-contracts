@@ -1,0 +1,57 @@
+[package]
+name = "g-contracts"
+description = "G Token smart contracts for TON blockchain"
+version = "0.1.0"
+license = "MIT"
+
+[toolchain]
+acton = "1.0.0"
+
+[contracts.G_Wallet]
+display-name = "G_Wallet"
+src = "contracts/G_Wallet.tolk"
+depends = []
+
+[contracts.G_Master]
+display-name = "G_Master"
+src = "contracts/G_Master.tolk"
+depends = []
+
+[contracts.PriceOracle]
+display-name = "PriceOracle"
+src = "contracts/PriceOracle.tolk"
+depends = []
+
+[contracts.G_Sale]
+display-name = "G_Sale"
+src = "contracts/G_Sale.tolk"
+depends = []
+
+[contracts.G_TeamVesting]
+display-name = "G_TeamVesting"
+src = "contracts/G_TeamVesting.tolk"
+depends = []
+
+[contracts.G_Ecosystem]
+display-name = "G_Ecosystem"
+src = "contracts/G_Ecosystem.tolk"
+depends = []
+
+[test]
+include = ["tests/**"]
+
+[fmt]
+width = 100
+ignore = []
+
+[scripts]
+deploy-all = "acton script scripts/deploy_all.tolk"
+deploy-emulation = "acton script scripts/deploy_all.tolk"
+deploy-testnet = "acton script scripts/deploy_all.tolk --net testnet"
+
+[import-mappings]
+acton = ".acton"
+contracts = "contracts"
+gen = "gen"
+tests = "tests"
+wrappers = "wrappers"
