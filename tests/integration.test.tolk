@@ -32,6 +32,8 @@ get fun `test Ed25519 signature verification on purchase`() {
         .storeUint(50000000000, 128)
         .storeBool(true)
         .storeBool(false)
+        .storeUint(50000, 32)
+        .storeUint(0, 32)
         .storeRef(targetsCell)
         .endCell();
     tierConfigs.uDictSetRef(8, 1, tcCell);
@@ -150,6 +152,8 @@ get fun `test Tier2 inviteHash=0 is rejected`() {
         .storeUint(240000000000, 128)
         .storeBool(true)
         .storeBool(true)
+        .storeUint(50000, 32)
+        .storeUint(0, 32)
         .storeRef(t2Targets)
         .endCell();
     tierConfigs.uDictSetRef(8, 2, tcCell);
@@ -243,6 +247,8 @@ get fun `test invalid signature is rejected`() {
         .storeUint(50000000000, 128)
         .storeBool(true)
         .storeBool(false)
+        .storeUint(50000, 32)
+        .storeUint(0, 32)
         .storeRef(t1Targets)
         .endCell();
     tierConfigs.uDictSetRef(8, 1, tcCell);

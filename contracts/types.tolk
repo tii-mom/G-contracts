@@ -15,6 +15,7 @@ enum Errors {
     Tier1AlreadyBought = 114
     PriceNotMaintained = 115
     TierInactive = 116
+    TierCapReached = 117
     InsufficientBalance = 706
     InvalidSender = 707
     InvalidMessage = 65535
@@ -59,6 +60,7 @@ const OP_PAUSE: int = 0x41505553 // "APUS"
 const OP_UNPAUSE: int = 0x41554e50 // "AUNP"
 const OP_CONFIGURE_TIER: int = 0x41544952 // "ATIR"
 const OP_WITHDRAW_TON: int = 0x57544f4e // "WTON"
+const OP_WITHDRAW_G: int = 0x57474f4b // "WGOK"
 
 // PriceOracle opcodes
 const OP_UPDATE_PRICE: int = 0x55504454 // "UPDT"

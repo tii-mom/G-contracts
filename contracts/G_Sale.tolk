@@ -206,7 +206,7 @@ fun saveOrdersCell(newOrdersCell: cell?) {
 
 // ==================== Tier Config ====================
 
-// TierConfig cell: tonAmount(64) | gBaseUnits(128) | totalRounds(8) | roundGAmount(128) | active(bool) | inviteRequired(bool) | ^targetsCell
+// TierConfig cell: tonAmount(64) | gBaseUnits(128) | totalRounds(8) | roundGAmount(128) | active(bool) | inviteRequired(bool) | maxPurchases(32) | purchaseCount(32) | ^targetsCell
 struct TierConfig {
     tonAmount: uint64
     gBaseUnits: uint128
@@ -214,6 +214,8 @@ struct TierConfig {
     roundGAmount: uint128
     active: bool
     inviteRequired: bool
+    maxPurchases: uint32
+    purchaseCount: uint32
     targetsCell: cell
 }
 
@@ -226,6 +228,8 @@ fun TierConfig.fromCell(c: cell): TierConfig {
         roundGAmount: ds.loadUint(128),
         active: ds.loadBool(),
         inviteRequired: ds.loadBool(),
+        maxPurchases: ds.loadUint(32),
+        purchaseCount: ds.loadUint(32),
         targetsCell: ds.loadRef(),
     };
 }
@@ -238,6 +242,8 @@ fun TierConfig.toCell(self): cell {
         .storeUint(self.roundGAmount, 128)
         .storeBool(self.active)
         .storeBool(self.inviteRequired)
+        .storeUint(self.maxPurchases, 32)
+        .storeUint(self.purchaseCount, 32)
         .storeRef(self.targetsCell)
         .endCell();
 }
@@ -342,6 +348,11 @@ fun onInternalMessage(in: InMessage) {
         return;
     }
 
+    if (op == OP_WITHDRAW_G) {
+        handleWithdrawG(cs, in.senderAddress);
+        return;
+    }
+
     throw Errors.InvalidMessage;
 }
 
@@ -399,17 +410,20 @@ fun handlePurchase(cs: slice, sender: address, msgValue: coins, queryId: int) {
     assert (!dcf) throw Errors.PurchaseNonceUsed;
 
     // Load tier config
-    val config: ConfigData = loadConfigData();
+    var config: ConfigData = loadConfigData();
     assert (config.jettonWalletAddress != null) throw Errors.JettonWalletNotSet;
 
-    val tierConfigs: cell? = config.tierConfigsCell;
+    var tierConfigs: cell? = config.tierConfigsCell;
     var (tierConfigCell, found) = tierConfigs.uDictGetRef(8, tierId);
     assert (found) throw Errors.TierInactive;
-    val tierConfig: TierConfig = TierConfig.fromCell(tierConfigCell!);
+    var tierConfig: TierConfig = TierConfig.fromCell(tierConfigCell!);
     assert (tierConfig.active) throw Errors.TierInactive;
     assert (tonAmount == tierConfig.tonAmount) throw Errors.TonAmountMismatch;
     assert (gAmount == tierConfig.gBaseUnits) throw Errors.TonAmountMismatch;
     assert (msgValue >= tonAmount) throw Errors.TonAmountMismatch;
+
+    // Check tier purchase cap
+    assert (tierConfig.purchaseCount < tierConfig.maxPurchases) throw Errors.TierCapReached;
 
     // Tier1: no invite required, check one-time per address
     if (tierId == 1) {
@@ -459,6 +473,14 @@ fun handlePurchase(cs: slice, sender: address, msgValue: coins, queryId: int) {
     }
     ordersDict.uDictSetRef(256, orderHash, orderCell);
     saveOrdersCell(ordersDict);
+
+    // Update tier purchase count
+    tierConfig.purchaseCount = tierConfig.purchaseCount + 1;
+    val updatedTcCell: cell = tierConfig.toCell();
+    tierConfigs.uDictSetRef(8, tierId, updatedTcCell);
+    config.tierConfigsCell = tierConfigs;
+    saveConfigData(config);
+
     saveStateData(state);
 
     // Send immediate G tokens (R-01) to buyer via Jetton wallet
@@ -553,11 +575,11 @@ fun handleClaim(cs: slice, sender: address, queryId: int) {
     assert ((order.claimedMask & roundMask) == 0) throw Errors.RoundAlreadyClaimed;
 
     // Verify G amount matches expected round amount
-    val config: ConfigData = loadConfigData();
-    val tierConfigs: cell? = config.tierConfigsCell;
+    var config: ConfigData = loadConfigData();
+    var tierConfigs: cell? = config.tierConfigsCell;
     var (tierConfigCell, tcFound) = tierConfigs.uDictGetRef(8, order.tierId);
     assert (tcFound) throw Errors.TierInactive;
-    val tierConfig: TierConfig = TierConfig.fromCell(tierConfigCell!);
+    var tierConfig: TierConfig = TierConfig.fromCell(tierConfigCell!);
     assert (gAmount == tierConfig.roundGAmount) throw Errors.InvalidRound;
 
     // Price verification: backend checks off-chain.
@@ -649,6 +671,19 @@ fun handleConfigureTier(cs: slice, sender: address) {
     val active: bool = cs.loadBool();
     val inviteRequired: bool = cs.loadBool();
     val targetsCell: cell = cs.loadRef();
+    val maxPurchases: uint32 = cs.loadUint(32);
+
+    // Preserve existing purchaseCount if tier was already configured
+    var existingPurchaseCount: uint32 = 0;
+    var config: ConfigData = loadConfigData();
+    var tierConfigs: cell? = config.tierConfigsCell;
+    if (tierConfigs != null) {
+        var (existingTcCell, tcExists) = tierConfigs.uDictGetRef(8, tierId);
+        if (tcExists) {
+            var existingTc: TierConfig = TierConfig.fromCell(existingTcCell!);
+            existingPurchaseCount = existingTc.purchaseCount;
+        }
+    }
 
     val tierConfig: TierConfig = TierConfig {
         tonAmount,
@@ -657,11 +692,11 @@ fun handleConfigureTier(cs: slice, sender: address) {
         roundGAmount,
         active,
         inviteRequired,
+        maxPurchases,
+        purchaseCount: existingPurchaseCount,
         targetsCell,
     };
 
-    var config: ConfigData = loadConfigData();
-    var tierConfigs: cell? = config.tierConfigsCell;
     if (tierConfigs == null) {
         tierConfigs = null;
     }
@@ -682,6 +717,39 @@ fun handleWithdrawTon(cs: slice, sender: address) {
         .storeAddress(toAddress)
         .storeCoins(amount)
         .storeUint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .endCell();
+
+    sendRawMessage(msg, SEND_MODE_CARRY_ALL_REMAINING_MESSAGE_VALUE);
+}
+
+fun handleWithdrawG(cs: slice, sender: address) {
+    val storage: SaleStorage = SaleStorage.load();
+    assert (sender == storage.owner) throw Errors.NotOwner;
+    var toAddress: address = cs.loadAddress();
+    var gAmount: coins = cs.loadCoins();
+
+    var config: ConfigData = loadConfigData();
+    assert (config.jettonWalletAddress != null) throw Errors.JettonWalletNotSet;
+    var jettonWallet: address = config.jettonWalletAddress!;
+
+    var forwardPayload: cell = beginCell().storeUint(0, 32).endCell();
+    val jettonTransferBody: cell = beginCell()
+        .storeUint(OP_TRANSFER, 32)
+        .storeUint(0, 64)
+        .storeCoins(gAmount)
+        .storeAddress(toAddress)
+        .storeAddress(storage.owner)
+        .storeMaybeRef(null)
+        .storeCoins(1)
+        .storeSlice(forwardPayload.beginParse())
+        .endCell();
+
+    val msg: cell = beginCell()
+        .storeUint(0x18, 6)
+        .storeAddress(jettonWallet)
+        .storeCoins(ton("0.05"))
+        .storeUint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .storeRef(jettonTransferBody)
         .endCell();
 
     sendRawMessage(msg, SEND_MODE_CARRY_ALL_REMAINING_MESSAGE_VALUE);
