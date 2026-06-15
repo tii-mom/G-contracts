@@ -41,7 +41,7 @@ fun MasterData.save(self) {
 
 // ==================== Mint ====================
 
-fun mintJettonImpl(toAddress: address, jettonAmount: coins, internalTransferBody: cell) {
+fun mintJettonImpl(toAddress: address, jettonAmount: coins, deployFee: coins, internalTransferBody: cell) {
     var data: MasterData = MasterData.load();
 
     var stateInit: cell = calculateJettonWalletStateInit(
@@ -54,7 +54,7 @@ fun mintJettonImpl(toAddress: address, jettonAmount: coins, internalTransferBody
     val msg: cell = beginCell()
         .storeUint(0x18, 6)
         .storeAddress(toWalletAddress)
-        .storeCoins(0)
+        .storeCoins(deployFee)
         .storeUint(4 + 2 + 1, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
         .storeRef(stateInit)
         .storeRef(internalTransferBody)
@@ -83,7 +83,7 @@ fun onInternalMessage(in: InMessage) {
         assert (in.senderAddress == data.adminAddress) throw Errors.NotOwner;
         assert (!data.mintingFinalized) throw Errors.InvalidMessage;
         val toAddress: address = cs.loadAddress();
-        var _amount: coins = cs.loadCoins();
+        var deployFee: coins = cs.loadCoins();
         val masterMsg: cell = cs.loadRef();
 
         var masterMsgCs: slice = masterMsg.beginParse();
@@ -93,7 +93,7 @@ fun onInternalMessage(in: InMessage) {
 
         assert (data.totalSupply + jettonAmount <= G_TOTAL_SUPPLY) throw Errors.InvalidMessage;
 
-        mintJettonImpl(toAddress, jettonAmount, masterMsg);
+        mintJettonImpl(toAddress, jettonAmount, deployFee, masterMsg);
         return;
     }
 

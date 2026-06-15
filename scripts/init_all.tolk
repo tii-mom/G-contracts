@@ -4,6 +4,10 @@ import "@acton/emulation/scripts"
 
 import "@contracts/types"
 
+fun makeAddr(h: uint256): address {
+    return address.fromWorkchainAndHash(0, h);
+}
+
 // ==================== CONFIGURATION (paste your addresses here) ====================
 
 // Reserve wallet: 0QDsx-vPapMJyIh3LYEQXAF_wp0iAWk8I6ZN7Vw79zqTDIjo
@@ -15,24 +19,24 @@ fun main() {
     println("Admin: {}", deployer.address);
     println("");
 
-    // ========== UPDATE THESE before running on testnet/mainnet ==========
-    val masterAddress = deployer.address; // TODO: paste G_Master address
-    val oracleAddress = deployer.address; // TODO: paste PriceOracle address
-    val saleAddress = deployer.address;   // TODO: paste G_Sale address
-    val teamAddress = deployer.address;   // TODO: paste G_TeamVesting address
-    val ecoAddress = deployer.address;    // TODO: paste G_Ecosystem address
+    // ========== DEPLOYED TESTNET ADDRESSES (7ca47d4) ==========
+    val masterAddress = makeAddr(0x8556f40833d7587b273f038f963513750b151b376bed7dc24907935d8b54258d);
+    val oracleAddress = makeAddr(0x5dea656b8002bc2702db9e667678e5fdb87004d50f06f8f1cf4f7172bcfaf092);
+    val saleAddress = makeAddr(0x93ec5fac5ab1a1285161e7b8fd24a88097d30b6c719ab5c028963b86274270ef);
+    val teamAddress = makeAddr(0x76589a9f497384490a3b74a511003cf165b8c50c35f0779dda3a06afd6c13bad);
+    val ecoAddress = makeAddr(0x938f6787b0cf2e608345ff90d5a25076ca56ade3c517d78d59a3a5508197f1e9);
 
-    // Jetton wallet addresses (use Master.getWalletAddress to calculate)
-    val saleWallet = deployer.address; // TODO: paste Sale Jetton wallet
-    val teamWallet = deployer.address; // TODO: paste Team Jetton wallet
-    val ecoWallet = deployer.address;  // TODO: paste Eco Jetton wallet
+    // Jetton wallet addresses (calculated via Master.getWalletAddress)
+    val saleWallet = makeAddr(0x31d4fb8187cbd5ef8924be805c7ae3b4803b7132875235ad3b48270d0c4b5bca);
+    val teamWallet = makeAddr(0x8a2ef930331c9e773d9725e080b259517d3e72b7de3b1b90814c1b48bcf962f5);
+    val ecoWallet = makeAddr(0xe17a2f1dcd57a2c0387281c8441958c4735bc05c7c2d902e883d64c8a90ba7af);
 
     // Direct wallet addresses (do NOT use Jetton wallet addresses here)
-    val reserveWallet = deployer.address; // TODO: 0QDsx-vPapMJyIh3LYEQXAF_wp0iAWk8I6ZN7Vw79zqTDIjo
-    val lpWallet = deployer.address;      // TODO: 0QB31HYfGtzDDa-cudZolA6g1gNcoxZsxeQoEM4lmhhuoyvk
+    val reserveWallet = makeAddr(0xecc7ebcf6a9309c888772d81105c017fc29d2201693c23a64ded5c3bf73a930c);
+    val lpWallet = makeAddr(0x77d4761f1adcc30daf9cb9d668940ea0d6035ca3166cc5e42810ce259a186ea3);
 
     // Backend Ed25519 public key (from KeyPair.publicKey)
-    val pubKey: uint256 = 0; // TODO: paste backend public key (uint256)
+    val pubKey: uint256 = 0xa7954053e8f7dad6003bfb9316aa105646dcad54ae6ee81770a5c25a36197c4b;
     // ================================================================
 
     // ====== Safety guards: all addresses must be updated ======
@@ -126,7 +130,7 @@ fun sendTo(dest: address, body: cell, value: coins) {
         deployer.address,
         createMessage({ bounce: BounceMode.NoBounce, value, dest, body }),
     );
-    println("  result: {}", res);
+    res.waitForFirstTransaction();
 }
 
 fun bodyConfigBackendKey(pubKey: uint256): cell {

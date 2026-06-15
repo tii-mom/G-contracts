@@ -7,27 +7,22 @@ import "@wrappers/GEcosystem.gen"
 import "@wrappers/GMaster.gen"
 import "@wrappers/GTeamVesting.gen"
 
-// ==================== CONFIGURATION (paste your addresses here) ====================
+fun makeAddr(h: uint256): address {
+    return address.fromWorkchainAndHash(0, h);
+}
+
+// ==================== CONFIGURATION (deployed testnet addresses) ====================
 
 fun main() {
     val deployer = scripts.wallet("deployer");
     println("=== G Token Deployment Verification ===");
     println("");
 
-    // ========== UPDATE THESE before running ==========
-    val masterAddress = deployer.address; // TODO: paste G_Master address
-    val oracleAddress = deployer.address; // TODO: paste PriceOracle address
-    val saleAddress = deployer.address;   // TODO: paste G_Sale address
-    val teamAddress = deployer.address;   // TODO: paste G_TeamVesting address
-    val ecoAddress = deployer.address;    // TODO: paste G_Ecosystem address
-    // =================================================
-
-    if (masterAddress == deployer.address) {
-        println("ERROR: Update contract addresses before running!");
-        return;
-    }
-    println("Addresses confirmed — running verification...");
-    println("");
+    val masterAddress = makeAddr(0x8556f40833d7587b273f038f963513750b151b376bed7dc24907935d8b54258d);
+    val oracleAddress = makeAddr(0x5dea656b8002bc2702db9e667678e5fdb87004d50f06f8f1cf4f7172bcfaf092);
+    val saleAddress = makeAddr(0x93ec5fac5ab1a1285161e7b8fd24a88097d30b6c719ab5c028963b86274270ef);
+    val teamAddress = makeAddr(0x76589a9f497384490a3b74a511003cf165b8c50c35f0779dda3a06afd6c13bad);
+    val ecoAddress = makeAddr(0x938f6787b0cf2e608345ff90d5a25076ca56ade3c517d78d59a3a5508197f1e9);
 
     var allOk: bool = true;
 
