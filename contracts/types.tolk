@@ -71,6 +71,7 @@ const OP_CHECK_TARGET: int = 0x54415247 // "TARG"
 const OP_MINT: int = 21
 const OP_CHANGE_ADMIN: int = 3
 const OP_CHANGE_CONTENT: int = 4
+const OP_FINALIZE_MINT: int = 0x464d494e // "FMIN"
 
 // G_Ecosystem opcodes
 const OP_TRANSFER_ECO: int = 0x45434f54 // "ECOT"

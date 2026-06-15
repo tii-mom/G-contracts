@@ -3,6 +3,8 @@ import "@acton/io"
 import "@acton/emulation/network"
 import "@acton/emulation/scripts"
 
+import "@contracts/types"
+
 fun main() {
     val deployer = scripts.wallet("deployer");
     println("Deployer: {}", deployer.address);
@@ -20,6 +22,7 @@ fun main() {
     val masterStorage = beginCell()
         .storeCoins(0)
         .storeAddress(deployer.address)
+        .storeBool(false)
         .storeRef(jettonContent)
         .storeRef(walletCode)
         .endCell();
@@ -104,10 +107,12 @@ fun main() {
     // ==================== Step 6: Deploy G_TeamVesting ====================
     val teamStorage = beginCell()
         .storeAddress(deployer.address)
-        .storeAddress(deployer.address)
-        .storeAddress(oracleAddr)
-        .storeCoins(0)
+        .storeUint(0, 256)
+        .storeCoins(T_TEAM_PER_ROUND)
         .storeUint(0, 16)
+        .storeRef(
+            beginCell().storeAddress(deployer.address).storeAddress(oracleAddr).endCell(),
+        )
         .storeMaybeRef(null)
         .endCell();
 

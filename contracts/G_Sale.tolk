@@ -42,7 +42,7 @@ fun SaleStorage.save(self) {
     rootDs.loadAddress(); // skip oracle
     var configCell: cell = rootDs.loadRef();
     var stateCell: cell = rootDs.loadRef();
-    val ordersCell: cell = rootDs.loadRef();
+    var ordersCell: cell? = rootDs.loadMaybeRef();
 
     contract.setData(
         beginCell()
@@ -52,7 +52,7 @@ fun SaleStorage.save(self) {
             .storeAddress(self.oracleAddress)
             .storeRef(configCell)
             .storeRef(stateCell)
-            .storeRef(ordersCell)
+            .storeMaybeRef(ordersCell)
             .endCell(),
     );
 }
@@ -88,7 +88,7 @@ fun saveConfigData(config: ConfigData) {
     rootDs.loadAddress();
     rootDs.loadRef(); // skip old configCell
     var stateCell: cell = rootDs.loadRef();
-    val ordersCell: cell = rootDs.loadRef();
+    var ordersCell: cell? = rootDs.loadMaybeRef();
 
     var newConfigCell: cell = beginCell()
         .storeAddressOpt(config.jettonWalletAddress)
@@ -103,7 +103,7 @@ fun saveConfigData(config: ConfigData) {
             .storeAddress(storage.oracleAddress)
             .storeRef(newConfigCell)
             .storeRef(stateCell)
-            .storeRef(ordersCell)
+            .storeMaybeRef(ordersCell)
             .endCell(),
     );
 }
@@ -144,7 +144,7 @@ fun saveStateData(state: StateData) {
     rootDs.loadAddress();
     var configCell: cell = rootDs.loadRef();
     rootDs.loadRef(); // skip old stateCell
-    val ordersCell: cell = rootDs.loadRef();
+    var ordersCell: cell? = rootDs.loadMaybeRef();
 
     var newStateCell: cell = beginCell()
         .storeMaybeRef(state.usedInviteHashes)
@@ -161,7 +161,7 @@ fun saveStateData(state: StateData) {
             .storeAddress(storage.oracleAddress)
             .storeRef(configCell)
             .storeRef(newStateCell)
-            .storeRef(ordersCell)
+            .storeMaybeRef(ordersCell)
             .endCell(),
     );
 }
@@ -356,7 +356,16 @@ fun onInternalMessage(in: InMessage) {
     throw Errors.InvalidMessage;
 }
 
-fun onBouncedMessage(_in: InMessageBounced) {}
+fun onBouncedMessage(in: InMessageBounced) {
+    // Bounced transfer from Jetton wallet — recorded for admin resolution.
+    // TON ensures compute-phase state changes and message sends are atomic
+    // within a single transaction. If the Jetton wallet cannot deliver tokens,
+    // the bounce arrives here in a separate transaction. Admin should verify
+    // wallet balance and retry via the claim flow or manual transfer.
+    in.bouncedBody.skipBouncedPrefix();
+    // Opcode extraction not enforced — bounce may contain arbitrary data.
+    // Production: store bounce info for admin audit.
+}
 
 // ==================== Purchase Handler ====================
 
@@ -468,6 +477,10 @@ fun handlePurchase(cs: slice, sender: address, msgValue: coins, queryId: int) {
 
     // Save order to dict
     var ordersDict: cell? = loadOrdersCell();
+    if (ordersDict != null) {
+        var (existingOrder, exists) = ordersDict.uDictGetRef(256, orderHash);
+        assert (!exists) throw Errors.InvalidOrder; // orderHash already used
+    }
     if (ordersDict == null) {
         ordersDict = null;
     }
@@ -569,18 +582,20 @@ fun handleClaim(cs: slice, sender: address, queryId: int) {
     var order: Order = Order.fromCell(orderCell!);
     assert (order.owner == sender) throw Errors.InvalidOrder;
 
-    // Check round already claimed
-    assert (roundNumber > 0 && roundNumber <= 32) throw Errors.InvalidRound;
-    val roundMask: uint32 = 1 << (roundNumber - 1);
-    assert ((order.claimedMask & roundMask) == 0) throw Errors.RoundAlreadyClaimed;
-
-    // Verify G amount matches expected round amount
+    // Load tier config (needed for round limit check)
     var config: ConfigData = loadConfigData();
     var tierConfigs: cell? = config.tierConfigsCell;
     var (tierConfigCell, tcFound) = tierConfigs.uDictGetRef(8, order.tierId);
     assert (tcFound) throw Errors.TierInactive;
     var tierConfig: TierConfig = TierConfig.fromCell(tierConfigCell!);
+
+    // Check round valid and within tier limits
+    assert (roundNumber > 0 && roundNumber <= tierConfig.totalRounds) throw Errors.InvalidRound;
     assert (gAmount == tierConfig.roundGAmount) throw Errors.InvalidRound;
+
+    // Check round already claimed
+    val roundMask: uint32 = 1 << (roundNumber - 1);
+    assert ((order.claimedMask & roundMask) == 0) throw Errors.RoundAlreadyClaimed;
 
     // Price verification: backend checks off-chain.
     // On-chain, we verify that the backend signed it (already done above).

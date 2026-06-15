@@ -1,20 +1,22 @@
+import "@stdlib/tvm-dicts"
 import "types"
 
 contract G_TeamVesting {
     author: "tii-mom"
     version: "1.0.0"
-    description: "G Token Team Vesting — 10 rounds of price-based unlock"
+    description: "G Token Team Vesting — 10 rounds of backend-authorized claim"
 }
 
-// ==================== Storage ====================
+const OP_CONFIGURE_VESTING_AMOUNT: int = 0x41564d54 // "AVMT"
 
-// Inline: owner | jettonWalletAddr | oracleAddr | totalGPerRound(coins) | claimedMask(uint16)
-// Ref:   lastRoundFirstReach: cell (dict)
+// ==================== Storage ====================
+// Root: owner | backendPublicKey(256) | totalGPerRound(coins) | claimedMask(16)
+//  [ref1] walletAndOracle cell: jettonWalletAddr | oracleAddr
+//  [ref2] usedClaimNonces dict
 
 struct TeamVestingStorage {
     owner: address
-    jettonWalletAddress: address
-    oracleAddress: address
+    backendPublicKey: uint256
     totalGPerRound: coins
     claimedMask: uint16
 }
@@ -23,8 +25,7 @@ fun TeamVestingStorage.load(): TeamVestingStorage {
     var ds: slice = contract.getData().beginParse();
     return TeamVestingStorage {
         owner: ds.loadAddress(),
-        jettonWalletAddress: ds.loadAddress(),
-        oracleAddress: ds.loadAddress(),
+        backendPublicKey: ds.loadUint(256),
         totalGPerRound: ds.loadCoins(),
         claimedMask: ds.loadUint(16),
     };
@@ -34,20 +35,103 @@ fun TeamVestingStorage.save(self) {
     val rootData: cell = contract.getData();
     var rootDs: slice = rootData.beginParse();
     rootDs.loadAddress();
-    rootDs.loadAddress();
-    rootDs.loadAddress();
+    rootDs.loadUint(256);
     rootDs.loadCoins();
     rootDs.loadUint(16);
-    val reachCell: cell? = rootDs.loadMaybeRef();
+    val walletOracleCell: cell = rootDs.loadRef();
+    val noncesCell: cell? = rootDs.loadMaybeRef();
 
     contract.setData(
         beginCell()
             .storeAddress(self.owner)
-            .storeAddress(self.jettonWalletAddress)
-            .storeAddress(self.oracleAddress)
+            .storeUint(self.backendPublicKey, 256)
             .storeCoins(self.totalGPerRound)
             .storeUint(self.claimedMask, 16)
-            .storeMaybeRef(reachCell)
+            .storeRef(walletOracleCell)
+            .storeMaybeRef(noncesCell)
+            .endCell(),
+    );
+}
+
+// ==================== Wallet/Oracle sub-storage ====================
+
+struct WalletOracleData {
+    jettonWalletAddress: address
+    oracleAddress: address
+}
+
+fun loadWalletOracle(): WalletOracleData {
+    var rootDs: slice = contract.getData().beginParse();
+    rootDs.loadAddress();
+    rootDs.loadUint(256);
+    rootDs.loadCoins();
+    rootDs.loadUint(16);
+    var woSlice: slice = rootDs.loadRef().beginParse();
+    return WalletOracleData {
+        jettonWalletAddress: woSlice.loadAddress(),
+        oracleAddress: woSlice.loadAddress(),
+    };
+}
+
+fun saveWalletOracle(data: WalletOracleData) {
+    var storage: TeamVestingStorage = TeamVestingStorage.load();
+    val rootData: cell = contract.getData();
+    var rootDs: slice = rootData.beginParse();
+    rootDs.loadAddress();
+    rootDs.loadUint(256);
+    rootDs.loadCoins();
+    rootDs.loadUint(16);
+    rootDs.loadRef(); // skip old
+    val noncesCell: cell? = rootDs.loadMaybeRef();
+
+    val woCell: cell = beginCell()
+        .storeAddress(data.jettonWalletAddress)
+        .storeAddress(data.oracleAddress)
+        .endCell();
+
+    contract.setData(
+        beginCell()
+            .storeAddress(storage.owner)
+            .storeUint(storage.backendPublicKey, 256)
+            .storeCoins(storage.totalGPerRound)
+            .storeUint(storage.claimedMask, 16)
+            .storeRef(woCell)
+            .storeMaybeRef(noncesCell)
+            .endCell(),
+    );
+}
+
+// ==================== Anti-replay helpers ====================
+
+fun loadClaimNonces(): cell? {
+    var rootDs: slice = contract.getData().beginParse();
+    rootDs.loadAddress();
+    rootDs.loadUint(256);
+    rootDs.loadCoins();
+    rootDs.loadUint(16);
+    rootDs.loadRef(); // skip walletOracle
+    return rootDs.loadMaybeRef();
+}
+
+fun saveClaimNonces(newNonces: cell?) {
+    var storage: TeamVestingStorage = TeamVestingStorage.load();
+    val rootData: cell = contract.getData();
+    var rootDs: slice = rootData.beginParse();
+    rootDs.loadAddress();
+    rootDs.loadUint(256);
+    rootDs.loadCoins();
+    rootDs.loadUint(16);
+    val walletOracleCell: cell = rootDs.loadRef();
+    rootDs.loadMaybeRef(); // skip old nonces
+
+    contract.setData(
+        beginCell()
+            .storeAddress(storage.owner)
+            .storeUint(storage.backendPublicKey, 256)
+            .storeCoins(storage.totalGPerRound)
+            .storeUint(storage.claimedMask, 16)
+            .storeRef(walletOracleCell)
+            .storeMaybeRef(newNonces)
             .endCell(),
     );
 }
@@ -67,55 +151,88 @@ fun onInternalMessage(in: InMessage) {
         handleClaim(cs, in.senderAddress, queryId);
         return;
     }
-
+    if (op == OP_CONFIGURE_BACKEND_KEY) {
+        handleConfigBackendKey(cs, in.senderAddress);
+        return;
+    }
     if (op == OP_CONFIGURE_JETTON_WALLET) {
         handleConfigWallet(cs, in.senderAddress);
         return;
     }
-
     if (op == OP_CONFIGURE_ORACLE) {
         handleConfigOracle(cs, in.senderAddress);
         return;
     }
-
+    if (op == OP_CONFIGURE_VESTING_AMOUNT) {
+        handleConfigVestingAmount(cs, in.senderAddress);
+        return;
+    }
     if (op == OP_WITHDRAW_TON) {
         handleWithdrawTon(cs, in.senderAddress);
         return;
     }
-
     throw Errors.InvalidMessage;
 }
 
-fun onBouncedMessage(_in: InMessageBounced) {}
+fun onBouncedMessage(in: InMessageBounced) {
+    in.bouncedBody.skipBouncedPrefix();
+}
 
 // ==================== Claim Handler ====================
 
 fun handleClaim(cs: slice, sender: address, queryId: int) {
     var storage: TeamVestingStorage = TeamVestingStorage.load();
-    assert (sender == storage.owner) throw Errors.NotOwner;
 
-    val roundNumber: uint8 = cs.loadUint(8);
+    val signatureSlice: slice = cs.loadBits(512);
+    val argsCell: cell = cs.loadRef();
+    var argsDs: slice = argsCell.beginParse();
+
+    val roundNumber: uint8 = argsDs.loadUint(8);
+    val gAmount: uint128 = argsDs.loadUint(128);
+    val claimNonce: uint256 = argsDs.loadUint(256);
+    val expiresAt: uint32 = argsDs.loadUint(32);
+
+    assert (blockchain.now() < expiresAt) throw Errors.Expired;
+
+    val payloadCell: cell = beginCell()
+        .storeAddress(sender)
+        .storeUint(roundNumber, 8)
+        .storeUint(gAmount, 128)
+        .storeUint(claimNonce, 256)
+        .storeUint(expiresAt, 32)
+        .endCell();
+
+    val payloadHash: uint256 = payloadCell.hash();
+    assert (
+        isSignatureValid(payloadHash, signatureSlice, storage.backendPublicKey)
+    ) throw Errors.InvalidSignature;
+
+    var nonces: cell? = loadClaimNonces();
+    if (nonces != null) {
+        var (_dv, nf) = nonces.uDictGetRef(256, claimNonce);
+        assert (!nf) throw Errors.ClaimNonceUsed;
+    }
+    if (nonces == null) {
+        nonces = null;
+    }
+    val ds = beginCell().storeUint(1, 1).endCell();
+    nonces.uDictSetRef(256, claimNonce, ds);
+    saveClaimNonces(nonces);
 
     assert (roundNumber >= 1 && roundNumber <= 10) throw Errors.InvalidRound;
-
-    // Check if round already claimed
     val roundMask: uint16 = 1 << (roundNumber - 1);
     assert ((storage.claimedMask & roundMask) == 0) throw Errors.RoundAlreadyClaimed;
+    assert (gAmount == storage.totalGPerRound) throw Errors.InvalidRound;
 
-    // Check price condition (simplified: trust off-chain price check)
-    // In production, query oracle on-chain. For MVP, backend signs claim authorization.
-    // Round 1 is immediate (target = 0), rounds 2-10 need price ≥ target maintained 24h.
-
-    // Mark round as claimed
     storage.claimedMask = storage.claimedMask | roundMask;
     storage.save();
 
-    // Send G tokens to owner via jetton wallet
+    val wo: WalletOracleData = loadWalletOracle();
     val forwardPayload: cell = beginCell().storeUint(0, 32).endCell();
     val jettonTransferBody: cell = beginCell()
         .storeUint(OP_TRANSFER, 32)
         .storeUint(queryId, 64)
-        .storeCoins(storage.totalGPerRound)
+        .storeCoins(storage.totalGPerRound as coins)
         .storeAddress(storage.owner)
         .storeAddress(storage.owner)
         .storeMaybeRef(null)
@@ -125,7 +242,7 @@ fun handleClaim(cs: slice, sender: address, queryId: int) {
 
     val msg: cell = beginCell()
         .storeUint(0x18, 6)
-        .storeAddress(storage.jettonWalletAddress)
+        .storeAddress(wo.jettonWalletAddress)
         .storeCoins(ton("0.05"))
         .storeUint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
         .storeRef(jettonTransferBody)
@@ -136,17 +253,33 @@ fun handleClaim(cs: slice, sender: address, queryId: int) {
 
 // ==================== Admin Handlers ====================
 
-fun handleConfigWallet(cs: slice, sender: address) {
+fun handleConfigBackendKey(cs: slice, sender: address) {
     var storage: TeamVestingStorage = TeamVestingStorage.load();
     assert (sender == storage.owner) throw Errors.NotOwner;
-    storage.jettonWalletAddress = cs.loadAddress();
+    storage.backendPublicKey = cs.loadUint(256);
     storage.save();
 }
 
-fun handleConfigOracle(cs: slice, sender: address) {
+fun handleConfigWallet(cs: slice, sender: address) {
+    var wo: WalletOracleData = loadWalletOracle();
     var storage: TeamVestingStorage = TeamVestingStorage.load();
     assert (sender == storage.owner) throw Errors.NotOwner;
-    storage.oracleAddress = cs.loadAddress();
+    wo.jettonWalletAddress = cs.loadAddress();
+    saveWalletOracle(wo);
+}
+
+fun handleConfigOracle(cs: slice, sender: address) {
+    var wo: WalletOracleData = loadWalletOracle();
+    var storage: TeamVestingStorage = TeamVestingStorage.load();
+    assert (sender == storage.owner) throw Errors.NotOwner;
+    wo.oracleAddress = cs.loadAddress();
+    saveWalletOracle(wo);
+}
+
+fun handleConfigVestingAmount(cs: slice, sender: address) {
+    var storage: TeamVestingStorage = TeamVestingStorage.load();
+    assert (sender == storage.owner) throw Errors.NotOwner;
+    storage.totalGPerRound = cs.loadCoins();
     storage.save();
 }
 
@@ -162,7 +295,6 @@ fun handleWithdrawTon(cs: slice, sender: address) {
         .storeCoins(amount)
         .storeUint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
         .endCell();
-
     sendRawMessage(msg, SEND_MODE_CARRY_ALL_REMAINING_MESSAGE_VALUE);
 }
 
@@ -170,5 +302,6 @@ fun handleWithdrawTon(cs: slice, sender: address) {
 
 get fun get_vesting_data(): (address, address, int, int) {
     val storage: TeamVestingStorage = TeamVestingStorage.load();
-    return (storage.owner, storage.oracleAddress, storage.totalGPerRound, storage.claimedMask);
+    val wo: WalletOracleData = loadWalletOracle();
+    return (storage.owner, wo.oracleAddress, storage.totalGPerRound, storage.claimedMask);
 }

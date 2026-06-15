@@ -11,6 +11,7 @@ contract G_Master {
 struct MasterData {
     totalSupply: coins
     adminAddress: address
+    mintingFinalized: bool
     jettonContent: cell
     jettonWalletCode: cell
 }
@@ -20,6 +21,7 @@ fun MasterData.load(): MasterData {
     return MasterData {
         totalSupply: ds.loadCoins(),
         adminAddress: ds.loadAddress(),
+        mintingFinalized: ds.loadBool(),
         jettonContent: ds.loadRef(),
         jettonWalletCode: ds.loadRef(),
     };
@@ -30,6 +32,7 @@ fun MasterData.save(self) {
         beginCell()
             .storeCoins(self.totalSupply)
             .storeAddress(self.adminAddress)
+            .storeBool(self.mintingFinalized)
             .storeRef(self.jettonContent)
             .storeRef(self.jettonWalletCode)
             .endCell(),
@@ -78,6 +81,7 @@ fun onInternalMessage(in: InMessage) {
 
     if (op == OP_MINT) {
         assert (in.senderAddress == data.adminAddress) throw Errors.NotOwner;
+        assert (!data.mintingFinalized) throw Errors.InvalidMessage;
         val toAddress: address = cs.loadAddress();
         var _amount: coins = cs.loadCoins();
         val masterMsg: cell = cs.loadRef();
@@ -86,6 +90,8 @@ fun onInternalMessage(in: InMessage) {
         var _msgOp: int = masterMsgCs.loadUint(32);
         var _msgQueryId: int = masterMsgCs.loadUint(64);
         val jettonAmount: coins = masterMsgCs.loadCoins();
+
+        assert (data.totalSupply + jettonAmount <= G_TOTAL_SUPPLY) throw Errors.InvalidMessage;
 
         mintJettonImpl(toAddress, jettonAmount, masterMsg);
         return;
@@ -137,6 +143,13 @@ fun onInternalMessage(in: InMessage) {
     if (op == OP_CHANGE_CONTENT) {
         assert (in.senderAddress == data.adminAddress) throw Errors.NotOwner;
         data.jettonContent = cs.loadRef();
+        data.save();
+        return;
+    }
+
+    if (op == OP_FINALIZE_MINT) {
+        assert (in.senderAddress == data.adminAddress) throw Errors.NotOwner;
+        data.mintingFinalized = true;
         data.save();
         return;
     }
