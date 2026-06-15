@@ -78,17 +78,17 @@ const OP_TRANSFER_ECO: int = 0x45434f54 // "ECOT"
 
 // ==================== Token Constants ====================
 
-// Total supply: 99 billion G = 99_000_000_000 * 10^6 base units
-const G_TOTAL_SUPPLY: int = 99000000000000000
+// Total supply: 99亿 G = 9,900,000,000 * 10^6 base units
+const G_TOTAL_SUPPLY: int = 9900000000000000
 const G_DECIMALS: int = 6
 
 // Distribution percentages (multiplied for integer math)
 // Sale: 10%, Team: 20%, Reserve: 5%, LP: 5%, Ecosystem: 60%
-const G_SALE_ALLOCATION: int = 9900000000000000 // 10% = 9.9B G
-const G_TEAM_ALLOCATION: int = 19800000000000000 // 20% = 19.8B G
-const G_RESERVE_ALLOCATION: int = 4950000000000000 // 5% = 4.95B G
-const G_LP_ALLOCATION: int = 4950000000000000 // 5% = 4.95B G
-const G_ECOSYSTEM_ALLOCATION: int = 59400000000000000 // 60% = 59.4B G
+const G_SALE_ALLOCATION: int = 990000000000000 // 10% = 9.9亿 G
+const G_TEAM_ALLOCATION: int = 1980000000000000 // 20% = 19.8亿 G
+const G_RESERVE_ALLOCATION: int = 495000000000000 // 5% = 4.95亿 G
+const G_LP_ALLOCATION: int = 495000000000000 // 5% = 4.95亿 G
+const G_ECOSYSTEM_ALLOCATION: int = 5940000000000000 // 60% = 59.4亿 G
 
 // ==================== Price Targets (USD * 10^6) ====================
 
@@ -129,7 +129,7 @@ fun teamRoundTarget(round: uint8): uint32 {
 }
 
 const TTM_TOTAL_ROUNDS: uint8 = 10
-const T_TEAM_PER_ROUND: int = 1980000000000000 // 1.98B G per round (20% / 10)
+const T_TEAM_PER_ROUND: int = 198000000000000 // 1.98亿 G per round (20% / 10)
 
 // ==================== 24 hours in seconds ====================
 

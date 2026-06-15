@@ -248,7 +248,7 @@ fun handleClaim(cs: slice, sender: address, queryId: int) {
         .storeRef(jettonTransferBody)
         .endCell();
 
-    sendRawMessage(msg, SEND_MODE_CARRY_ALL_REMAINING_MESSAGE_VALUE);
+    sendRawMessage(msg, SEND_MODE_REGULAR);
 }
 
 // ==================== Admin Handlers ====================

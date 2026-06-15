@@ -526,7 +526,7 @@ fun handlePurchase(cs: slice, sender: address, msgValue: coins, queryId: int) {
         .storeRef(jettonTransferBody)
         .endCell();
 
-    sendRawMessage(msg, SEND_MODE_CARRY_ALL_REMAINING_MESSAGE_VALUE);
+    sendRawMessage(msg, SEND_MODE_REGULAR);
 }
 
 // ==================== Claim Handler ====================
@@ -632,7 +632,7 @@ fun handleClaim(cs: slice, sender: address, queryId: int) {
         .storeRef(jettonTransferBody)
         .endCell();
 
-    sendRawMessage(msg, SEND_MODE_CARRY_ALL_REMAINING_MESSAGE_VALUE);
+    sendRawMessage(msg, SEND_MODE_REGULAR);
 }
 
 // ==================== Admin Handlers ====================
@@ -767,7 +767,7 @@ fun handleWithdrawG(cs: slice, sender: address) {
         .storeRef(jettonTransferBody)
         .endCell();
 
-    sendRawMessage(msg, SEND_MODE_CARRY_ALL_REMAINING_MESSAGE_VALUE);
+    sendRawMessage(msg, SEND_MODE_REGULAR);
 }
 
 // ==================== Getters ====================

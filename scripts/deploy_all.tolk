@@ -136,7 +136,7 @@ fun main() {
     val ecoStorage = beginCell()
         .storeAddress(deployer.address)
         .storeAddress(deployer.address)
-        .storeCoins(59400000000000000)
+        .storeCoins(G_ECOSYSTEM_ALLOCATION)
         .endCell();
 
     val ecoInit = ContractState {
