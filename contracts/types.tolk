@@ -66,6 +66,7 @@ const OP_WITHDRAW_G: int = 0x57474f4b // "WGOK"
 const OP_UPDATE_PRICE: int = 0x55504454 // "UPDT"
 const OP_GET_PRICE: int = 0x50524943 // "PRIC"
 const OP_CHECK_TARGET: int = 0x54415247 // "TARG"
+const OP_REGISTER_TARGET: int = 0x52454754 // "REGT"
 
 // G_Master opcodes
 const OP_MINT: int = 21
@@ -130,6 +131,7 @@ fun teamRoundTarget(round: uint8): uint32 {
 
 const TTM_TOTAL_ROUNDS: uint8 = 10
 const T_TEAM_PER_ROUND: int = 198000000000000 // 1.98亿 G per round (20% / 10)
+const OP_CONFIGURE_VESTING_AMOUNT: int = 0x41564d54 // "AVMT"
 
 // ==================== 24 hours in seconds ====================
 

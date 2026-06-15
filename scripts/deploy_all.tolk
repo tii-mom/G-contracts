@@ -182,26 +182,30 @@ fun main() {
     println("   Sale.configureJettonWallet(saleWalletAddr)");
     println("   Sale.configureOracle(oracleAddr)");
     println("");
-    println("3. Configure G_Sale tiers (ATIR):");
-    println("   Tier1: 9.99 TON, 50K G, 1 round, no invite");
-    println("   Tier2: 99.99 TON, 1.2M G, 5 rounds, invite required");
-    println("   Tier3: 299.99 TON, 5M G, 10 rounds, invite required");
+    println("3. Configure G_Sale tiers (ATIR) with caps:");
+    println("   Tier1: 9.99 TON, 50K G, 1 round, no invite, cap=5000");
+    println("   Tier2: 99.99 TON, 1.2M G, 5 rounds, invite required, cap=200");
+    println("   Tier3: 299.99 TON, 5M G, 10 rounds, invite required, cap=100");
     println("");
     println("4. Configure G_TeamVesting:");
+    println("   Team.configureBackendKey(backendPubKey)");
     println("   Team.configureJettonWallet(teamWalletAddr)");
     println("   Team.configureOracle(oracleAddr)");
+    println("   Team.configureVestingAmount: 1.98亿 G per round");
     println("");
     println("5. Configure G_Ecosystem:");
     println("   Eco.configureJettonWallet(ecoWalletAddr)");
+
     println("");
-    println("6. G_Master.mint() to distribute 99B G:");
-    println("   Master.mint(to: saleWalletAddr, amount: 9.9B)");
-    println("   Master.mint(to: teamWalletAddr, amount: 19.8B)");
-    println("   Master.mint(to: reserveWallet, amount: 4.95B)");
-    println("   Master.mint(to: lpWallet, amount: 4.95B)");
-    println("   Master.mint(to: ecoWalletAddr, amount: 59.4B)");
+    println("6. G_Master.mint() to distribute 99亿 G:");
+    println("   Sale:    9.9亿  (mint to saleWalletAddr)");
+    println("   Team:    19.8亿 (mint to teamWalletAddr)");
+    println("   Reserve: 4.95亿 (mint to reserve wallet: 0QDsx-vPapMJyIh3LYEQXAF_wp0iAWk8I6ZN7Vw79zqTDIjo)");
+    println("   LP:      4.95亿 (mint to LP wallet: 0QB31HYfGtzDDa-cudZolA6g1gNcoxZsxeQoEM4lmhhuoyvk)");
+    println("   Eco:     59.4亿 (mint to ecoWalletAddr)");
     println("");
-    println("7. PriceOracle.updatePrice(162) ← set initial price $0.000162");
+    println("7. G_Master.finalizeMint() ← lock supply permanently");
+    println("8. PriceOracle.updatePrice(162) ← set initial price $0.000162");
 }
 
 fun createSnakeCell(data: string): cell {

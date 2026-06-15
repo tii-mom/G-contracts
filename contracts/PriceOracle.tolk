@@ -7,7 +7,6 @@ contract PriceOracle {
     description: "G Token USD price oracle — admin-updated with target price tracking"
 }
 
-const OP_REGISTER_TARGET: int = 0x52454754 // "REGT"
 const OP_BATCH_REGISTER: int = 0x42524547 // "BREG"
 
 // ==================== Storage ====================

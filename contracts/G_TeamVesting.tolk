@@ -7,8 +7,6 @@ contract G_TeamVesting {
     description: "G Token Team Vesting — 10 rounds of backend-authorized claim"
 }
 
-const OP_CONFIGURE_VESTING_AMOUNT: int = 0x41564d54 // "AVMT"
-
 // ==================== Storage ====================
 // Root: owner | backendPublicKey(256) | totalGPerRound(coins) | claimedMask(16)
 //  [ref1] walletAndOracle cell: jettonWalletAddr | oracleAddr
