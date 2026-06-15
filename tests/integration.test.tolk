@@ -91,12 +91,15 @@ get fun `test Ed25519 signature verification on purchase`() {
         .storeUint(gAmount, 128)
         .storeUint(tierId, 8)
         .storeUint(orderHash, 256)
+        .storeAddress(contract.address)
         .endCell();
 
     val senderAddr: address = deployer.address;
 
     val payloadCell: cell = beginCell()
         .storeAddress(senderAddr)
+        .storeUint(0, 32)
+        .storeUint(1, 32)
         .storeUint(inviteHash, 256)
         .storeUint(purchaseNonce, 256)
         .storeRef(restCell)
@@ -189,16 +192,19 @@ get fun `test Tier2 inviteHash=0 is rejected`() {
     };
     contract.deploy(deployer.address, { value: ton("5") });
 
-    // Build Tier2 purchase with inviteHash=0
+    // Build Tier2 purchase with inviteHash=0 (domain-separated)
     val restCell: cell = beginCell()
         .storeUint(blockchain.now() + 3600, 32)
         .storeUint(99990000000, 64)
         .storeUint(1200000000000, 128)
         .storeUint(2, 8)
         .storeUint(99999, 256)
+        .storeAddress(contract.address)
         .endCell();
     val payloadCell: cell = beginCell()
         .storeAddress(deployer.address)
+        .storeUint(0, 32)
+        .storeUint(1, 32)
         .storeUint(0, 256)
         .storeUint(2, 256)
         .storeRef(restCell)

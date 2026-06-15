@@ -137,6 +137,10 @@ const OP_CONFIGURE_VESTING_AMOUNT: int = 0x41564d54 // "AVMT"
 
 const SECONDS_24H: int = 86400
 
+// ==================== Signature Domain Separation ====================
+
+const SCHEMA_VERSION: uint32 = 1
+
 // ==================== Ed25519 Constants ====================
 
 const ED25519_SIG_BITS: int = 512

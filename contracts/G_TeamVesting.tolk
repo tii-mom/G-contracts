@@ -192,12 +192,17 @@ fun handleClaim(cs: slice, sender: address, queryId: int) {
 
     assert (blockchain.now() < expiresAt) throw Errors.Expired;
 
+    // Reconstruct signature payload cell (domain-separated)
+    val addrCell: cell = beginCell().storeAddress(contract.getAddress()).endCell();
     val payloadCell: cell = beginCell()
         .storeAddress(sender)
+        .storeUint(0, 32)
+        .storeUint(SCHEMA_VERSION, 32)
         .storeUint(roundNumber, 8)
         .storeUint(gAmount, 128)
         .storeUint(claimNonce, 256)
         .storeUint(expiresAt, 32)
+        .storeRef(addrCell)
         .endCell();
 
     val payloadHash: uint256 = payloadCell.hash();

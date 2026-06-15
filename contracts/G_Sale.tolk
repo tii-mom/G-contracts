@@ -391,20 +391,23 @@ fun handlePurchase(cs: slice, sender: address, msgValue: coins, queryId: int) {
     // Check expiry
     assert (blockchain.now() < expiresAt) throw Errors.Expired;
 
-    // Reconstruct signature payload cell
-    val restCell: cell = beginCell()
+    // Reconstruct signature payload cell (domain-separated)
+    val innerCell: cell = beginCell()
         .storeUint(expiresAt, 32)
         .storeUint(tonAmount, 64)
         .storeUint(gAmount, 128)
         .storeUint(tierId, 8)
         .storeUint(orderHash, 256)
+        .storeAddress(contract.getAddress())
         .endCell();
 
     val payloadCell: cell = beginCell()
         .storeAddress(sender)
+        .storeUint(0, 32)
+        .storeUint(SCHEMA_VERSION, 32)
         .storeUint(inviteHash, 256)
         .storeUint(purchaseNonce, 256)
-        .storeRef(restCell)
+        .storeRef(innerCell)
         .endCell();
 
     // Verify signature
@@ -551,14 +554,18 @@ fun handleClaim(cs: slice, sender: address, queryId: int) {
     // Check expiry
     assert (blockchain.now() < expiresAt) throw Errors.Expired;
 
-    // Reconstruct signature payload cell
+    // Reconstruct signature payload cell (domain-separated)
+    val addrCell: cell = beginCell().storeAddress(contract.getAddress()).endCell();
     val payloadCell: cell = beginCell()
         .storeAddress(sender)
+        .storeUint(0, 32)
+        .storeUint(SCHEMA_VERSION, 32)
         .storeUint(orderHash, 256)
         .storeUint(roundNumber, 8)
         .storeUint(gAmount, 128)
         .storeUint(claimNonce, 256)
         .storeUint(expiresAt, 32)
+        .storeRef(addrCell)
         .endCell();
 
     // Verify signature

@@ -97,9 +97,12 @@ get fun `test duplicate purchaseNonce is rejected`() {
         .storeUint(50000000000, 128)
         .storeUint(1, 8)
         .storeUint(100, 256)
+        .storeAddress(contract.address)
         .endCell();
     val payloadCell: cell = beginCell()
         .storeAddress(deployer.address)
+        .storeUint(0, 32)
+        .storeUint(1, 32)
         .storeUint(0, 256)
         .storeUint(1, 256)
         .storeRef(restCell)
@@ -147,9 +150,12 @@ get fun `test expired signature is rejected`() {
         .storeUint(50000000000, 128)
         .storeUint(1, 8)
         .storeUint(200, 256)
+        .storeAddress(contract.address)
         .endCell();
     val payloadCell: cell = beginCell()
         .storeAddress(deployer.address)
+        .storeUint(0, 32)
+        .storeUint(1, 32)
         .storeUint(0, 256)
         .storeUint(2, 256)
         .storeRef(restCell)
@@ -239,9 +245,12 @@ get fun `test tier cap reached is rejected`() {
         .storeUint(50000000000, 128)
         .storeUint(1, 8)
         .storeUint(300, 256)
+        .storeAddress(contract.address)
         .endCell();
     val payloadCell: cell = beginCell()
         .storeAddress(deployer.address)
+        .storeUint(0, 32)
+        .storeUint(1, 32)
         .storeUint(0, 256)
         .storeUint(3, 256)
         .storeRef(restCell)
@@ -291,9 +300,12 @@ get fun `test pause and unpause`() {
         .storeUint(50000000000, 128)
         .storeUint(1, 8)
         .storeUint(400, 256)
+        .storeAddress(contract.address)
         .endCell();
     val payloadCell: cell = beginCell()
         .storeAddress(deployer.address)
+        .storeUint(0, 32)
+        .storeUint(1, 32)
         .storeUint(0, 256)
         .storeUint(4, 256)
         .storeRef(restCell)
@@ -330,6 +342,8 @@ get fun `test pause and unpause`() {
     // Purchase should succeed now
     val payloadCell2: cell = beginCell()
         .storeAddress(deployer.address)
+        .storeUint(0, 32)
+        .storeUint(1, 32)
         .storeUint(0, 256)
         .storeUint(5, 256)
         .storeRef(restCell)
@@ -497,13 +511,17 @@ get fun `test TeamVesting claim with valid signature`() {
     };
     contract.deploy(deployer.address, { value: ton("5") });
 
-    // Build claim payload (round 1, immediate)
+    // Build claim payload (round 1, immediate, domain-separated)
+    val addrCell: cell = beginCell().storeAddress(contract.address).endCell();
     val payloadCell: cell = beginCell()
         .storeAddress(deployer.address)
+        .storeUint(0, 32)
+        .storeUint(1, 32)
         .storeUint(1, 8)
         .storeUint(T_TEAM_PER_ROUND, 128)
         .storeUint(1, 256)
         .storeUint(blockchain.now() + 3600, 32)
+        .storeRef(addrCell)
         .endCell();
     val sig: slice = crypto.sign(kp.privateKey, payloadCell);
 
@@ -522,4 +540,367 @@ get fun `test TeamVesting claim with valid signature`() {
 
     val res = contract.sendAny(deployer.address, msgBody, { value: ton("10") });
     expect(res).toHaveSuccessfulTx({ from: deployer.address, to: contract.address });
+}
+
+// ==================== Cross-contract replay protection ====================
+
+get fun `test signature from Sale A rejected on Sale B`() {
+    val deployer = testing.treasury("deployer");
+    val kp = crypto.generateKeyPair();
+
+    // Deploy Sale A
+    val contractA = deploySaleWithTier1(kp, deployer);
+
+    // Deploy Sale B with SAME public key (same backend) but different tier config
+    // Use Tier2 to ensure different storage from contractA's Tier1
+    val t2TargetsB: cell = beginCell()
+        .storeUint(0, 32)
+        .storeUint(200, 32)
+        .storeUint(500, 32)
+        .storeUint(1250, 32)
+        .storeUint(3125, 32)
+        .endCell();
+    var tierConfigsB: cell? = null;
+    val tcCellB: cell = beginCell()
+        .storeUint(99990000000, 64)
+        .storeUint(1200000000000, 128)
+        .storeUint(5, 8)
+        .storeUint(240000000000, 128)
+        .storeBool(true)
+        .storeBool(true)
+        .storeUint(50000, 32)
+        .storeUint(0, 32)
+        .storeRef(t2TargetsB)
+        .endCell();
+    tierConfigsB.uDictSetRef(8, 2, tcCellB);
+
+    val configCellB: cell = beginCell()
+        .storeAddressOpt(deployer.address)
+        .storeMaybeRef(tierConfigsB)
+        .endCell();
+    val stateCellB: cell = beginCell()
+        .storeMaybeRef(null)
+        .storeMaybeRef(null)
+        .storeMaybeRef(null)
+        .storeMaybeRef(null)
+        .endCell();
+    val saleStorageB: cell = beginCell()
+        .storeAddress(deployer.address)
+        .storeUint(kp.publicKey, 256)
+        .storeBool(false)
+        .storeAddress(deployer.address)
+        .storeRef(configCellB)
+        .storeRef(stateCellB)
+        .storeMaybeRef(null)
+        .endCell();
+
+    val stateInitB = ContractState {
+        code: build("G_Sale"),
+        data: saleStorageB,
+    };
+    val addrB = AutoDeployAddress { stateInit: stateInitB }.calculateAddress();
+    val contractB = GSale {
+        address: addrB,
+        stateInit: stateInitB,
+    };
+    contractB.deploy(deployer.address, { value: ton("5") });
+
+    // Build purchase payload signed for contractA
+    val innerCell: cell = beginCell()
+        .storeUint(blockchain.now() + 3600, 32)
+        .storeUint(9990000000, 64)
+        .storeUint(50000000000, 128)
+        .storeUint(1, 8)
+        .storeUint(9999, 256)
+        .storeAddress(contractA.address)
+        .endCell();
+    val payloadCell: cell = beginCell()
+        .storeAddress(deployer.address)
+        .storeUint(0, 32)
+        .storeUint(1, 32)
+        .storeUint(0, 256)
+        .storeUint(50, 256)
+        .storeRef(innerCell)
+        .endCell();
+    val sig: slice = crypto.sign(kp.privateKey, payloadCell);
+
+    // Send to contractB (the wrong contract)
+    val argsCell: cell = beginCell()
+        .storeUint(1, 8)
+        .storeUint(9990000000, 64)
+        .storeUint(50000000000, 128)
+        .storeUint(0, 256)
+        .storeUint(50, 256)
+        .storeUint(blockchain.now() + 3600, 32)
+        .storeUint(9999, 256)
+        .endCell();
+    val msgBody: cell = beginCell()
+        .storeUint(OP_PURCHASE_WITH_INVITE, 32)
+        .storeUint(0, 64)
+        .storeSlice(sig)
+        .storeRef(argsCell)
+        .endCell();
+
+    // Should fail on contractB because payload contains contractA's address
+    val res = contractB.sendAny(deployer.address, msgBody, { value: ton("10") });
+    expect(res).toHaveFailedTx({
+        from: deployer.address,
+        to: contractB.address,
+        exitCode: Errors.InvalidSignature,
+    });
+}
+
+// ==================== E2E: Tier2 purchase with invite succeeds ====================
+
+get fun `test Tier2 purchase with invite succeeds`() {
+    val deployer = testing.treasury("deployer");
+    val kp = crypto.generateKeyPair();
+
+    // Deploy Sale with Tier2 config
+    val t2Targets: cell = beginCell()
+        .storeUint(0, 32)
+        .storeUint(200, 32)
+        .storeUint(500, 32)
+        .storeUint(1250, 32)
+        .storeUint(3125, 32)
+        .endCell();
+    var tierConfigs: cell? = null;
+    val tcCell: cell = beginCell()
+        .storeUint(99990000000, 64)
+        .storeUint(1200000000000, 128)
+        .storeUint(5, 8)
+        .storeUint(240000000000, 128)
+        .storeBool(true)
+        .storeBool(true)
+        .storeUint(50000, 32)
+        .storeUint(0, 32)
+        .storeRef(t2Targets)
+        .endCell();
+    tierConfigs.uDictSetRef(8, 2, tcCell);
+
+    val configCell: cell = beginCell()
+        .storeAddressOpt(deployer.address)
+        .storeMaybeRef(tierConfigs)
+        .endCell();
+    val stateCell: cell = beginCell()
+        .storeMaybeRef(null)
+        .storeMaybeRef(null)
+        .storeMaybeRef(null)
+        .storeMaybeRef(null)
+        .endCell();
+    val saleStorage: cell = beginCell()
+        .storeAddress(deployer.address)
+        .storeUint(kp.publicKey, 256)
+        .storeBool(false)
+        .storeAddress(deployer.address)
+        .storeRef(configCell)
+        .storeRef(stateCell)
+        .storeMaybeRef(null)
+        .endCell();
+
+    val stateInit = ContractState {
+        code: build("G_Sale"),
+        data: saleStorage,
+    };
+    val addr = AutoDeployAddress { stateInit }.calculateAddress();
+    val contract = GSale {
+        address: addr,
+        stateInit,
+    };
+    contract.deploy(deployer.address, { value: ton("5") });
+
+    // Build Tier2 purchase with valid invite
+    val inviteHash: uint256 = 0xabcdef;
+    val innerCell: cell = beginCell()
+        .storeUint(blockchain.now() + 3600, 32)
+        .storeUint(99990000000, 64)
+        .storeUint(1200000000000, 128)
+        .storeUint(2, 8)
+        .storeUint(77777, 256)
+        .storeAddress(contract.address)
+        .endCell();
+    val payloadCell: cell = beginCell()
+        .storeAddress(deployer.address)
+        .storeUint(0, 32)
+        .storeUint(1, 32)
+        .storeUint(inviteHash, 256)
+        .storeUint(60, 256)
+        .storeRef(innerCell)
+        .endCell();
+    val sig: slice = crypto.sign(kp.privateKey, payloadCell);
+
+    val argsCell: cell = beginCell()
+        .storeUint(2, 8)
+        .storeUint(99990000000, 64)
+        .storeUint(1200000000000, 128)
+        .storeUint(inviteHash, 256)
+        .storeUint(60, 256)
+        .storeUint(blockchain.now() + 3600, 32)
+        .storeUint(77777, 256)
+        .endCell();
+    val msgBody: cell = beginCell()
+        .storeUint(OP_PURCHASE_WITH_INVITE, 32)
+        .storeUint(0, 64)
+        .storeSlice(sig)
+        .storeRef(argsCell)
+        .endCell();
+
+    val res = contract.sendAny(deployer.address, msgBody, { value: ton("100") });
+    expect(res).toHaveSuccessfulTx({ from: deployer.address, to: contract.address });
+}
+
+// ==================== E2E: TeamVesting repeat claim fails ====================
+
+get fun `test TeamVesting repeat claim fails`() {
+    val deployer = testing.treasury("deployer");
+    val kp = crypto.generateKeyPair();
+
+    val woCell: cell = beginCell()
+        .storeAddress(deployer.address)
+        .storeAddress(deployer.address)
+        .endCell();
+    val teamStorage = beginCell()
+        .storeAddress(deployer.address)
+        .storeUint(kp.publicKey, 256)
+        .storeCoins(T_TEAM_PER_ROUND)
+        .storeUint(0, 16)
+        .storeRef(woCell)
+        .storeMaybeRef(null)
+        .endCell();
+    val stateInit = ContractState {
+        code: build("G_TeamVesting"),
+        data: teamStorage,
+    };
+    val addr = AutoDeployAddress { stateInit }.calculateAddress();
+    val contract = GTeamVesting {
+        address: addr,
+        stateInit,
+    };
+    contract.deploy(deployer.address, { value: ton("5") });
+
+    // Round 1 claim
+    val addrCell: cell = beginCell().storeAddress(contract.address).endCell();
+    val payloadCell: cell = beginCell()
+        .storeAddress(deployer.address)
+        .storeUint(0, 32)
+        .storeUint(1, 32)
+        .storeUint(1, 8)
+        .storeUint(T_TEAM_PER_ROUND, 128)
+        .storeUint(70, 256)
+        .storeUint(blockchain.now() + 3600, 32)
+        .storeRef(addrCell)
+        .endCell();
+    val sig: slice = crypto.sign(kp.privateKey, payloadCell);
+
+    val argsCell: cell = beginCell()
+        .storeUint(1, 8)
+        .storeUint(T_TEAM_PER_ROUND, 128)
+        .storeUint(70, 256)
+        .storeUint(blockchain.now() + 3600, 32)
+        .endCell();
+    val msgBody: cell = beginCell()
+        .storeUint(OP_CLAIM_WITH_AUTHORIZATION, 32)
+        .storeUint(0, 64)
+        .storeSlice(sig)
+        .storeRef(argsCell)
+        .endCell();
+
+    val res1 = contract.sendAny(deployer.address, msgBody, { value: ton("10") });
+    expect(res1).toHaveSuccessfulTx({ from: deployer.address, to: contract.address });
+
+    // Repeat same round — should fail
+    val res2 = contract.sendAny(deployer.address, msgBody, { value: ton("10") });
+    expect(res2).toHaveFailedTx({
+        from: deployer.address,
+        to: contract.address,
+        exitCode: Errors.ClaimNonceUsed,
+    });
+}
+
+// ==================== E2E: Tier1 per-address limit ====================
+
+get fun `test Tier1 second purchase from same address fails`() {
+    val deployer = testing.treasury("deployer");
+    val kp = crypto.generateKeyPair();
+    val contract = deploySaleWithTier1(kp, deployer);
+
+    // First Tier1 purchase
+    val innerCell: cell = beginCell()
+        .storeUint(blockchain.now() + 3600, 32)
+        .storeUint(9990000000, 64)
+        .storeUint(50000000000, 128)
+        .storeUint(1, 8)
+        .storeUint(800, 256)
+        .storeAddress(contract.address)
+        .endCell();
+    val payloadCell: cell = beginCell()
+        .storeAddress(deployer.address)
+        .storeUint(0, 32)
+        .storeUint(1, 32)
+        .storeUint(0, 256)
+        .storeUint(80, 256)
+        .storeRef(innerCell)
+        .endCell();
+    val sig: slice = crypto.sign(kp.privateKey, payloadCell);
+
+    val argsCell: cell = beginCell()
+        .storeUint(1, 8)
+        .storeUint(9990000000, 64)
+        .storeUint(50000000000, 128)
+        .storeUint(0, 256)
+        .storeUint(80, 256)
+        .storeUint(blockchain.now() + 3600, 32)
+        .storeUint(800, 256)
+        .endCell();
+    val msgBody: cell = beginCell()
+        .storeUint(OP_PURCHASE_WITH_INVITE, 32)
+        .storeUint(0, 64)
+        .storeSlice(sig)
+        .storeRef(argsCell)
+        .endCell();
+
+    val res1 = contract.sendAny(deployer.address, msgBody, { value: ton("10") });
+    expect(res1).toHaveSuccessfulTx({ from: deployer.address, to: contract.address });
+
+    // Second purchase from same address — different nonce, different orderHash
+    val innerCell2: cell = beginCell()
+        .storeUint(blockchain.now() + 3600, 32)
+        .storeUint(9990000000, 64)
+        .storeUint(50000000000, 128)
+        .storeUint(1, 8)
+        .storeUint(900, 256)
+        .storeAddress(contract.address)
+        .endCell();
+    val payloadCell2: cell = beginCell()
+        .storeAddress(deployer.address)
+        .storeUint(0, 32)
+        .storeUint(1, 32)
+        .storeUint(0, 256)
+        .storeUint(81, 256)
+        .storeRef(innerCell2)
+        .endCell();
+    val sig2: slice = crypto.sign(kp.privateKey, payloadCell2);
+
+    val argsCell2: cell = beginCell()
+        .storeUint(1, 8)
+        .storeUint(9990000000, 64)
+        .storeUint(50000000000, 128)
+        .storeUint(0, 256)
+        .storeUint(81, 256)
+        .storeUint(blockchain.now() + 3600, 32)
+        .storeUint(900, 256)
+        .endCell();
+    val msgBody2: cell = beginCell()
+        .storeUint(OP_PURCHASE_WITH_INVITE, 32)
+        .storeUint(0, 64)
+        .storeSlice(sig2)
+        .storeRef(argsCell2)
+        .endCell();
+
+    val res2 = contract.sendAny(deployer.address, msgBody2, { value: ton("10") });
+    expect(res2).toHaveFailedTx({
+        from: deployer.address,
+        to: contract.address,
+        exitCode: Errors.Tier1AlreadyBought,
+    });
 }
