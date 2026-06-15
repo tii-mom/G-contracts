@@ -35,11 +35,70 @@ fun main() {
     val pubKey: uint256 = 0; // TODO: paste backend public key (uint256)
     // ================================================================
 
+    // ====== Safety guards: all addresses must be updated ======
+    var ok: bool = true;
+
     if (masterAddress == deployer.address) {
-        println("ERROR: Update contract addresses before running!");
+        println("ERROR: masterAddress not updated");
+        ok = false;
+    }
+    if (oracleAddress == deployer.address) {
+        println("ERROR: oracleAddress not updated");
+        ok = false;
+    }
+    if (saleAddress == deployer.address) {
+        println("ERROR: saleAddress not updated");
+        ok = false;
+    }
+    if (teamAddress == deployer.address) {
+        println("ERROR: teamAddress not updated");
+        ok = false;
+    }
+    if (ecoAddress == deployer.address) {
+        println("ERROR: ecoAddress not updated");
+        ok = false;
+    }
+    if (saleWallet == deployer.address) {
+        println("ERROR: saleWallet not updated");
+        ok = false;
+    }
+    if (teamWallet == deployer.address) {
+        println("ERROR: teamWallet not updated");
+        ok = false;
+    }
+    if (ecoWallet == deployer.address) {
+        println("ERROR: ecoWallet not updated");
+        ok = false;
+    }
+    if (reserveWallet == deployer.address) {
+        println("ERROR: reserveWallet not updated");
+        ok = false;
+    }
+    if (lpWallet == deployer.address) {
+        println("ERROR: lpWallet not updated");
+        ok = false;
+    }
+
+    if (pubKey == 0) {
+        println("ERROR: pubKey not updated (still 0)");
+        ok = false;
+    }
+    if (reserveWallet == lpWallet) {
+        println("ERROR: reserveWallet == lpWallet (must be different)");
+        ok = false;
+    }
+    if (saleWallet == teamWallet || saleWallet == ecoWallet || teamWallet == ecoWallet) {
+        println("ERROR: sale/team/eco Jetton wallets must be different");
+        ok = false;
+    }
+
+    if (!ok) {
+        println("");
+        println("Update all TODO placeholders above, then re-run.");
         return;
     }
-    println("Addresses confirmed — starting initialization...");
+
+    println("All address guards passed — starting initialization...");
 
     stepAll(
         saleAddress,

@@ -165,7 +165,14 @@ fun onBouncedMessage(_in: InMessageBounced) {
 
 get fun get_jetton_data(): (int, int, address, cell, cell) {
     val data: MasterData = MasterData.load();
-    return (data.totalSupply, -1, data.adminAddress, data.jettonContent, data.jettonWalletCode);
+    val mintable: int = data.mintingFinalized ? 0 : -1;
+    return (
+        data.totalSupply,
+        mintable,
+        data.adminAddress,
+        data.jettonContent,
+        data.jettonWalletCode,
+    );
 }
 
 get fun get_wallet_address(ownerAddress: address): address {
@@ -173,4 +180,9 @@ get fun get_wallet_address(ownerAddress: address): address {
     return calculateJettonWalletAddress(
         calculateJettonWalletStateInit(ownerAddress, contract.getAddress(), data.jettonWalletCode),
     );
+}
+
+get fun is_minting_finalized(): bool {
+    val data: MasterData = MasterData.load();
+    return data.mintingFinalized;
 }

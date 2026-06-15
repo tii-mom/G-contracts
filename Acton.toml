@@ -48,6 +48,10 @@ ignore = []
 deploy-all = "acton script scripts/deploy_all.tolk"
 deploy-emulation = "acton script scripts/deploy_all.tolk"
 deploy-testnet = "acton script scripts/deploy_all.tolk --net testnet"
+init-all = "acton script scripts/init_all.tolk"
+init-testnet = "acton script scripts/init_all.tolk --net testnet"
+verify-deployment = "acton script scripts/verify_deployment.tolk"
+verify-testnet = "acton script scripts/verify_deployment.tolk --net testnet"
 
 [import-mappings]
 acton = ".acton"
