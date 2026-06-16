@@ -197,15 +197,20 @@ fun main() {
     println("   Eco.configureJettonWallet(ecoWalletAddr)");
 
     println("");
-    println("6. G_Master.mint() to distribute 99亿 G:");
-    println("   Sale:    9.9亿  (mint to saleWalletAddr)");
-    println("   Team:    19.8亿 (mint to teamWalletAddr)");
-    println("   Reserve: 4.95亿 (mint to reserve wallet: 0QDsx-vPapMJyIh3LYEQXAF_wp0iAWk8I6ZN7Vw79zqTDIjo)");
-    println("   LP:      4.95亿 (mint to LP wallet: 0QB31HYfGtzDDa-cudZolA6g1gNcoxZsxeQoEM4lmhhuoyvk)");
-    println("   Eco:     59.4亿 (mint to ecoWalletAddr)");
+    println("6. G_Master.mint() → 99亿 G to admin wallet:");
+    println("   Master.mint(to: adminWallet, amount: 99亿)");
     println("");
     println("7. G_Master.finalizeMint() ← lock supply permanently");
     println("8. PriceOracle.updatePrice(162) ← set initial price $0.000162");
+    println("");
+    println("9. Admin distributes G via Jetton transfer:");
+    println("   Sale:    9.9亿  → Sale contract Jetton wallet");
+    println("   Team:    19.8亿 → Team contract Jetton wallet");
+    println("   Reserve: 4.95亿 → 0QDsx-vPap...TDIjo");
+    println("   LP:      4.95亿 → 0QB31HYfGtz...uoyvk");
+    println("   Eco:     59.4亿 → Eco contract Jetton wallet");
+    println("");
+    println("   (run: acton run distribute-testnet)");
 }
 
 fun createSnakeCell(data: string): cell {

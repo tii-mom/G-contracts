@@ -19,23 +19,23 @@ fun main() {
     println("Admin: {}", deployer.address);
     println("");
 
-    // ========== DEPLOYED TESTNET ADDRESSES (7ca47d4) ==========
-    val masterAddress = makeAddr(0x8556f40833d7587b273f038f963513750b151b376bed7dc24907935d8b54258d);
+    // ========== DEPLOYED TESTNET v0.2 ADDRESSES (abcacb5) ==========
+    val masterAddress = makeAddr(0x3e224893a657faab66c18d10e2db3b0715624f9159f61d33e90aeacf764c7398);
     val oracleAddress = makeAddr(0x5dea656b8002bc2702db9e667678e5fdb87004d50f06f8f1cf4f7172bcfaf092);
     val saleAddress = makeAddr(0x93ec5fac5ab1a1285161e7b8fd24a88097d30b6c719ab5c028963b86274270ef);
     val teamAddress = makeAddr(0x76589a9f497384490a3b74a511003cf165b8c50c35f0779dda3a06afd6c13bad);
     val ecoAddress = makeAddr(0x938f6787b0cf2e608345ff90d5a25076ca56ade3c517d78d59a3a5508197f1e9);
 
     // Jetton wallet addresses (calculated via Master.getWalletAddress)
-    val saleWallet = makeAddr(0x31d4fb8187cbd5ef8924be805c7ae3b4803b7132875235ad3b48270d0c4b5bca);
-    val teamWallet = makeAddr(0x8a2ef930331c9e773d9725e080b259517d3e72b7de3b1b90814c1b48bcf962f5);
-    val ecoWallet = makeAddr(0xe17a2f1dcd57a2c0387281c8441958c4735bc05c7c2d902e883d64c8a90ba7af);
+    val saleWallet = makeAddr(0xeef1d9ded153b2240a51297221dc41437059f15d7f011d2eb0aae4903e0d7c5e);
+    val teamWallet = makeAddr(0xc14f99484dcfad1f24184d1fca93af67069680877b0854ee96012b5ef98dcde7);
+    val ecoWallet = makeAddr(0x1dcda469d263cbd4ecb6281e9db5ce9368c86fb530ddb7a3baa78d0c8da694c5);
 
     // Direct wallet addresses (do NOT use Jetton wallet addresses here)
     val reserveWallet = makeAddr(0xecc7ebcf6a9309c888772d81105c017fc29d2201693c23a64ded5c3bf73a930c);
     val lpWallet = makeAddr(0x77d4761f1adcc30daf9cb9d668940ea0d6035ca3166cc5e42810ce259a186ea3);
 
-    // Backend Ed25519 public key (from KeyPair.publicKey)
+    // Backend Ed25519 public key (dev seed)
     val pubKey: uint256 = 0xa7954053e8f7dad6003bfb9316aa105646dcad54ae6ee81770a5c25a36197c4b;
     // ================================================================
 
@@ -358,25 +358,14 @@ fun stepAll(
     println("--- Step 7: Set Initial Price $0.000162 ---");
     sendTo(oracleAddress, bodyUpdatePrice(162), ton("0.05"));
 
-    println("--- Step 8: Mint 5 Allocations (99亿 G total) ---");
+    println("--- Step 8: Mint 99亿 G to Admin Wallet ---");
     val walletDeployFee: coins = ton("0.05");
-    println("  Wallet deploy fee per mint: {} nanoton", walletDeployFee);
-    println("  Mint Sale (9.9亿)...");
-    sendTo(masterAddress, bodyMint(saleWallet, G_SALE_ALLOCATION, walletDeployFee), ton("0.15"));
-    println("  Mint Team (19.8亿)...");
-    sendTo(masterAddress, bodyMint(teamWallet, G_TEAM_ALLOCATION, walletDeployFee), ton("0.15"));
-    println("  Mint Reserve (4.95亿)...");
+    val adminAddr = scripts.wallet("deployer").address;
+    println("  Admin: {}", adminAddr);
+    println("  Wallet deploy fee: {} nanoton", walletDeployFee);
     sendTo(
         masterAddress,
-        bodyMint(reserveWallet, G_RESERVE_ALLOCATION, walletDeployFee),
-        ton("0.15"),
-    );
-    println("  Mint LP (4.95亿)...");
-    sendTo(masterAddress, bodyMint(lpWallet, G_LP_ALLOCATION, walletDeployFee), ton("0.15"));
-    println("  Mint Eco (59.4亿)...");
-    sendTo(
-        masterAddress,
-        bodyMint(ecoWallet, G_ECOSYSTEM_ALLOCATION, walletDeployFee),
+        bodyMint(adminAddr, G_TOTAL_SUPPLY, walletDeployFee),
         ton("0.15"),
     );
 
@@ -385,6 +374,5 @@ fun stepAll(
 
     println("");
     println("=== Init Complete ===");
-    println("Sale: 9.9亿 G  |  Team: 19.8亿 G  |  Reserve: 4.95亿 G  |  LP: 4.95亿 G  |  Eco: 59.4亿 G");
-    println("Total supply: {} base units", G_TOTAL_SUPPLY);
+    println("99亿 G minted to admin wallet. Run distribute.tolk to allocate.");
 }
